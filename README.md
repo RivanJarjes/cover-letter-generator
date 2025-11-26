@@ -4,10 +4,12 @@ An AI-powered desktop application that generates tailored cover letters using yo
 
 ## Demo
 
+https://github.com/user-attachments/assets/6fe478f0-4d92-48e8-a775-6415e41df257
 
 ## How to Run
 
 ### Prerequisites
+
 - Python 3.8 or higher
 - OpenAI API key
 
