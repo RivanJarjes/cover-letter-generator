@@ -42,7 +42,12 @@ OPENAI_API_KEY=your_api_key_here
 
 ### Running the Application
 
-From the project root directory:
+Run using the run script:
+```bash
+./run.sh
+```
+
+Or from the project root directory:
 
 ```bash
 python -m src.main
