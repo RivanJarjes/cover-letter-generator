@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import pypdf
 
-# Configure logging
 logger = logging.getLogger(__name__)
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -20,6 +19,28 @@ _MAX_TOKENS = int(os.getenv("OPENAI_MAX_TOKENS", "1200"))
 _FILENAME_MAX_TOKENS = int(os.getenv("OPENAI_FILENAME_MAX_TOKENS", "60"))
 _TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.3"))
 _TOP_P = float(os.getenv("OPENAI_TOP_P", "0.95"))
+
+# Default prompts
+_DEFAULT_COVER_LETTER_PROMPT = (
+    "You write concise, tailored cover letters.\n"
+    "**Avoid em dashes (—);** use commas or periods instead.\n"
+    "Do not mention experience that is absent from the resume.\n"
+    "Keep the final letter be one printed page (roughly 4 short paragraphs).\n"
+    "**Stay professional, specific, and eliminate filler.**\n"
+    "Make sure to have a proper ending and signature area.\n"
+    "**ONLY IF INFO IS SUPPLIED BY THE RESUME**, have a header at the top consisting of the user's name, city, email, "
+    "and/or phone number, **only if given by resume.**\n"
+    "**DO NOT put any placeholders in the cover letter**, leverage whatever is given only."
+)
+_DEFAULT_FILENAME_PROMPT = (
+    "You generate short, filesystem-safe PDF filenames for cover letters. "
+    "Output ONLY the filename without extension. Use snake_case. "
+    "Format: company_role (e.g., google_software_engineer, meta_product_manager). "
+    "Keep it under 40 characters. No spaces, no special characters except underscores."
+)
+
+_COVER_LETTER_PROMPT = _DEFAULT_COVER_LETTER_PROMPT
+_FILENAME_PROMPT = _DEFAULT_FILENAME_PROMPT
 
 # Models that support temperature and top_p
 _MODELS_WITH_SAMPLING = {"gpt-5.1"}
@@ -38,15 +59,7 @@ def _build_prompt(resume_text: str, job_description: str, sample_text: Optional[
 		)
 
 	return (
-		"You write concise, tailored cover letters.\n"
-		"**Avoid em dashes (—);** use commas or periods instead.\n"
-		"Do not mention experience that is absent from the resume.\n"
-		"Keep the final letter be one printed page (roughly 4 short paragraphs).\n"
-		"**Stay professional, specific, and eliminate filler.**\n"
-		"Make sure to have a proper ending and signature area.\n"
-		"**ONLY IF INFO IS SUPPLIED BY THE RESUME**, have a header at the top consisting of the user's name, city, email, "
-		"and/or phone number, **only if given by resume.**\n"
-		"**DO NOT put any placeholders in the cover letter**, leverage whatever is given only.\n\n"
+		_COVER_LETTER_PROMPT + "\n\n"
 		"<resume>\n"
 		f"{resume_text.strip()}\n"
 		"</resume>\n\n"
@@ -151,12 +164,7 @@ def generate_filename(job_description: str) -> str:
             input=[
                 {
                     "role": "system",
-                    "content": (
-                        "You generate short, filesystem-safe PDF filenames for cover letters. "
-                        "Output ONLY the filename without extension. Use snake_case. "
-                        "Format: company_role (e.g., google_software_engineer, meta_product_manager). "
-                        "Keep it under 40 characters. No spaces, no special characters except underscores."
-                    ),
+                    "content": _FILENAME_PROMPT,
                 },
                 {
                     "role": "user",

@@ -12,7 +12,6 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from typing import Dict, List, Optional, Tuple
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -57,6 +56,23 @@ DEFAULT_SETTINGS = {
     "font_name": "Helvetica",
     "font_size": 12,
     "output_path": str(PROJECT_ROOT),
+    "cover_letter_prompt": (
+        "You write concise, tailored cover letters.\n"
+        "**Avoid em dashes (—);** use commas or periods instead.\n"
+        "Do not mention experience that is absent from the resume.\n"
+        "Keep the final letter be one printed page (roughly 4 short paragraphs).\n"
+        "**Stay professional, specific, and eliminate filler.**\n"
+        "Make sure to have a proper ending and signature area.\n"
+        "**ONLY IF INFO IS SUPPLIED BY THE RESUME**, have a header at the top consisting of the user's name, city, email, "
+        "and/or phone number, **only if given by resume.**\n"
+        "**DO NOT put any placeholders in the cover letter**, leverage whatever is given only."
+    ),
+    "filename_prompt": (
+        "You generate short, filesystem-safe PDF filenames for cover letters. "
+        "Output ONLY the filename without extension. Use snake_case. "
+        "Format: company_role (e.g., google_software_engineer, meta_product_manager). "
+        "Keep it under 40 characters. No spaces, no special characters except underscores."
+    ),
 }
 
 # Regex patterns for detecting linkable content
@@ -212,6 +228,30 @@ class FileUploadApp(tk.Tk):
         top_p_note.grid(row=row, column=2, sticky="w", padx=5)
         row += 1
 
+        # Cover Letter Prompt
+        tk.Label(main_frame, text="Cover Letter Prompt:", anchor="w").grid(row=row, column=0, sticky="w", pady=5)
+        cover_letter_prompt_frame = tk.Frame(main_frame)
+        cover_letter_prompt_frame.grid(row=row, column=1, columnspan=2, sticky="w", pady=5)
+        cover_letter_prompt_text = tk.Text(cover_letter_prompt_frame, height=6, width=50, wrap=tk.WORD)
+        cover_letter_prompt_text.insert(tk.END, self._settings["cover_letter_prompt"])
+        cover_letter_prompt_scrollbar = tk.Scrollbar(cover_letter_prompt_frame, command=cover_letter_prompt_text.yview)
+        cover_letter_prompt_text.config(yscrollcommand=cover_letter_prompt_scrollbar.set)
+        cover_letter_prompt_text.pack(side=tk.LEFT)
+        cover_letter_prompt_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        row += 1
+
+        # Filename Prompt
+        tk.Label(main_frame, text="Filename Prompt:", anchor="w").grid(row=row, column=0, sticky="w", pady=5)
+        filename_prompt_frame = tk.Frame(main_frame)
+        filename_prompt_frame.grid(row=row, column=1, columnspan=2, sticky="w", pady=5)
+        filename_prompt_text = tk.Text(filename_prompt_frame, height=3, width=50, wrap=tk.WORD)
+        filename_prompt_text.insert(tk.END, self._settings["filename_prompt"])
+        filename_prompt_scrollbar = tk.Scrollbar(filename_prompt_frame, command=filename_prompt_text.yview)
+        filename_prompt_text.config(yscrollcommand=filename_prompt_scrollbar.set)
+        filename_prompt_text.pack(side=tk.LEFT)
+        filename_prompt_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        row += 1
+
         # Font Selection
         tk.Label(main_frame, text="Font:", anchor="w").grid(row=row, column=0, sticky="w", pady=5)
         font_var = tk.StringVar(value=self._settings["font_name"])
@@ -243,6 +283,27 @@ class FileUploadApp(tk.Tk):
         button_frame = tk.Frame(main_frame)
         button_frame.grid(row=row, column=0, columnspan=3, pady=(20, 0))
 
+        def reset_to_defaults() -> None:
+            # Reset all UI variables to default values
+            api_key_var.set("")
+            cover_model_var.set(DEFAULT_SETTINGS["cover_letter_model"])
+            filename_model_var.set(DEFAULT_SETTINGS["filename_model"])
+            max_tokens_var.set(str(DEFAULT_SETTINGS["max_tokens"]))
+            filename_max_tokens_var.set(str(DEFAULT_SETTINGS["filename_max_tokens"]))
+            temperature_var.set(str(DEFAULT_SETTINGS["temperature"]))
+            top_p_var.set(str(DEFAULT_SETTINGS["top_p"]))
+            font_var.set(DEFAULT_SETTINGS["font_name"])
+            font_size_var.set(str(DEFAULT_SETTINGS["font_size"]))
+            output_path_var.set(DEFAULT_SETTINGS["output_path"])
+
+            # Reset text widgets
+            cover_letter_prompt_text.delete("1.0", tk.END)
+            cover_letter_prompt_text.insert(tk.END, DEFAULT_SETTINGS["cover_letter_prompt"])
+            filename_prompt_text.delete("1.0", tk.END)
+            filename_prompt_text.insert(tk.END, DEFAULT_SETTINGS["filename_prompt"])
+
+            logger.info("Settings reset to defaults")
+
         def save_preferences() -> None:
             # Validate and save
             try:
@@ -270,6 +331,8 @@ class FileUploadApp(tk.Tk):
             self._settings["font_name"] = font_var.get()
             self._settings["font_size"] = font_size
             self._settings["output_path"] = output_path_var.get()
+            self._settings["cover_letter_prompt"] = cover_letter_prompt_text.get("1.0", tk.END).strip()
+            self._settings["filename_prompt"] = filename_prompt_text.get("1.0", tk.END).strip()
 
             # Reset font path cache when font changes
             self._font_path = None
@@ -284,6 +347,7 @@ class FileUploadApp(tk.Tk):
             messagebox.showinfo("Preferences", "Settings saved successfully.")
 
         tk.Button(button_frame, text="Cancel", command=dialog.destroy, width=10).pack(side=tk.LEFT, padx=10)
+        tk.Button(button_frame, text="Reset to Defaults", command=reset_to_defaults, width=15).pack(side=tk.LEFT, padx=10)
         tk.Button(button_frame, text="Save", command=save_preferences, width=10).pack(side=tk.LEFT, padx=10)
 
     def _browse_output_path(self, path_var: tk.StringVar) -> None:
@@ -329,6 +393,8 @@ class FileUploadApp(tk.Tk):
         llm._FILENAME_MAX_TOKENS = self._settings["filename_max_tokens"]
         llm._TEMPERATURE = self._settings["temperature"]
         llm._TOP_P = self._settings["top_p"]
+        llm._COVER_LETTER_PROMPT = self._settings["cover_letter_prompt"]
+        llm._FILENAME_PROMPT = self._settings["filename_prompt"]
 
     def _build_widgets(self) -> None:
         header = tk.Label(self, text="Cover Letter Generator", font=("Helvetica", 16, "bold"))
@@ -708,6 +774,12 @@ class FileUploadApp(tk.Tk):
             width=12,
             command=lambda: self._view_pdf(pdf_path, dialog),
         ).pack(side=tk.LEFT, padx=10)
+        tk.Button(
+            button_frame,
+            text="Go to directory",
+            width=15,
+            command=lambda: self._open_directory(pdf_path.parent),
+        ).pack(side=tk.LEFT, padx=10)
 
     def _view_pdf(self, pdf_path: Path, dialog: tk.Toplevel) -> None:
         try:
@@ -731,6 +803,19 @@ class FileUploadApp(tk.Tk):
         except Exception as e:
             logger.error(f"Failed to open file {pdf_path}: {e}", exc_info=True)
             raise
+
+    def _open_directory(self, directory: Path) -> None:
+        try:
+            if sys.platform.startswith("darwin"):
+                subprocess.run(["open", str(directory)], check=False)
+            elif os.name == "nt":
+                os.startfile(str(directory))  # type: ignore[attr-defined]
+            else:
+                subprocess.run(["xdg-open", str(directory)], check=False)
+            logger.info(f"Opened directory: {directory}")
+        except Exception as exc:  # noqa: BLE001
+            logger.error(f"Unable to open directory {directory}: {exc}", exc_info=True)
+            messagebox.showerror("Unable to open directory", str(exc))
 
 
 def main() -> None:
