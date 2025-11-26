@@ -1,3 +1,3 @@
 cd .
 source ./.venv/bin/activate
-python -m src.main
+./.venv/bin/python -m src.main
